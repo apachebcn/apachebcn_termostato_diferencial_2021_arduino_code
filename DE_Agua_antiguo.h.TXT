@@ -1,0 +1,290 @@
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+    #define PIN_WATER_LEVEL_WRITE A13 //TRIGGER
+    #define PIN_WATER_LEVEL_READ A14 //ECHO
+    #define PIN_AGUA_STOP A15
+#endif
+#ifdef IS_COMPILER_FOR_ARDUINO_PRO_MINI
+    #define PIN_WATER_LEVEL_WRITE 7 //TRIGGER
+    #define PIN_WATER_LEVEL_READ 6 //ECHO
+#endif
+
+#define MAX_TIME_WATER_LEVEL_READ_MS 500
+
+#define AGUA_ERROR_NIVEL_0 5
+#define AGUA_ERROR_NIVEL_MENOR_DE_PUNTO_2 6
+#define AGUA_ERROR_TECHO_MAYOR_TOTAL 7
+#define AGUA_ERROR_SUELO_MAYOR_TOTAL 8
+#define AGUA_ERROR_SUELO_MAYOR_TECHO 9
+#define AGUA_ERROR_AGUA_STOP 10
+
+bool agua_estado = 0;
+bool agua_estado_stop_pin = 0;
+bool run_agua = OFF;
+byte result_agua = RESULT_OK;
+int agua_nivel_litros = 0;
+int agua_lcd = 0;
+int agua_stat_min = -999;
+int agua_stat_max = -999;
+unsigned int agua_nivel_lectura = 0;
+
+void agua_inicia_pins(bool);
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+    void agua_stop_inicia_pins(bool);
+#endif
+unsigned int agua_puntos_a_litros(unsigned);
+unsigned int agua_leer_puntos();
+void agua_set_error(byte error_num);
+void agua_procesa();
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+    bool test_agua_stop_activado();
+#endif
+unsigned long agua_disparo_timer_;
+
+#define MAX_TIME_WAIT_WATER_LEVEL_READ_MS 500
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

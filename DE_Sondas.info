@@ -1,0 +1,19 @@
+/*
+    DS18B20 Specifications
+
+    Parameter	DS18B20
+    Temperature Range	-55C ~ 125C
+    Temperature Accuracy:	0.5C (-10 ~ 85C)
+    Temperature Accuracy: 	2C (-55 ~ 125C)
+    Resolution	0.0625C ~ 0.5C
+    Drift	0.2C 1000-hour stress at 125C
+    Power Supply:	3.0 ~5.5V
+    Active Supply Current:	1 ~ 1.5mA
+    Idle Supply Current:	0.75mA ~ 1mA (max)
+    DS18B20 Acquisition Speed vs Acquisition time
+    No. Bits	Max Conversion Time	Resolution	Bits to Ignore
+    9           93.75ms                 0.500C         2,1,0
+    10          187.5ms                 0.250C         1,0
+    11          375ms                   0.125C         0
+    12          750ms                   0.0625C	
+*/

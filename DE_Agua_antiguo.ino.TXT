@@ -1,0 +1,424 @@
+void agua_inicia_pins(bool new_estado)
+{
+    if (agua_estado == new_estado) return;
+
+    if (new_estado)
+    {
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+        if (IS_SERIAL_DEBUG_SETUP())
+        {
+/*
+            Serial_debug::print(F("Activar pin para gestion agua"));
+            Serial_debug::print(F(" ["));
+            Serial_debug::print(F("Trigger = ")); Serial_debug::print(PIN_WATER_LEVEL_WRITE);
+            Serial_debug::print(F("; Echo = ")); Serial_debug::print(PIN_WATER_LEVEL_READ);
+            Serial.println(F("]"));
+*/
+        }
+#endif
+        pinMode(PIN_WATER_LEVEL_WRITE, OUTPUT);
+        digitalWrite(PIN_WATER_LEVEL_WRITE, LOW);
+        pinMode(PIN_WATER_LEVEL_READ, INPUT);
+    }
+    else
+    {
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+        if (IS_SERIAL_DEBUG_SETUP())
+        {
+            Serial.println(F("Desactivar pins para gestion agua"));
+        }
+#endif
+        pinMode(PIN_WATER_LEVEL_WRITE, 0);
+        pinMode(PIN_WATER_LEVEL_READ, 0);
+    }
+    agua_estado = new_estado;
+}
+
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+void agua_stop_inicia_pins(bool new_estado)
+{
+    if (agua_estado_stop_pin == new_estado) return;
+    if (new_estado)
+    {
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+        if (IS_SERIAL_DEBUG_SETUP())
+        {
+            Serial_debug::print(F("Activar pin para agua-stop"));
+            Serial_debug::print(F(" ["));
+            Serial_debug::print(PIN_AGUA_STOP);
+            Serial.println(F("]"));
+        }
+#endif
+        pinMode(PIN_AGUA_STOP, INPUT_PULLUP);
+    }
+    else
+    {
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+        if (IS_SERIAL_DEBUG_SETUP())
+        {
+            Serial.println(F("Desactivar pin para agua-stop"));
+        }
+#endif
+        pinMode(PIN_AGUA_STOP, 0);
+    }
+    agua_estado_stop_pin = new_estado;
+}
+#endif
+
+unsigned int agua_puntos_a_litros(unsigned int puntos)
+{
+    unsigned int agua_total = (Menu::get_valor(AGUA_CAPACIDAD_TOTAL)*10);
+    unsigned int altura_config_punto_maximo = (Menu::get_valor(AGUA_ALTURA_PUNTOS));
+    unsigned int litros;
+
+    litros = (unsigned int) puntos * ((float)agua_total/(float)altura_config_punto_maximo);
+    if (agua_stat_min == -999 || litros < agua_stat_min) agua_stat_min = litros;
+    if (agua_stat_max == -999 || litros > agua_stat_max) agua_stat_max = litros;
+    return litros;
+}
+
+unsigned int agua_leer_puntos()
+{
+    unsigned int puntos = 0;
+    unsigned int altura_config_punto_maximo = (Menu::get_valor(AGUA_ALTURA_PUNTOS));
+
+    digitalWrite(PIN_WATER_LEVEL_WRITE, LOW);
+    delayMicroseconds(50);
+    digitalWrite(PIN_WATER_LEVEL_WRITE, HIGH);
+    delayMicroseconds(100);
+    digitalWrite(PIN_WATER_LEVEL_WRITE, LOW);
+
+    agua_disparo_timer_ = millis();
+    while(!puntos && !if_diff_to_millis(agua_disparo_timer_, MAX_TIME_WATER_LEVEL_READ_MS))
+    {
+        puntos = pulseIn(PIN_WATER_LEVEL_READ, HIGH);
+    }
+
+    if (puntos < 0) puntos = 0;
+
+    return puntos;
+}
+
+void agua_set_error(byte error_num)
+{
+    result_agua = error_num;
+}
+
+void agua_procesa()
+{
+    result_agua = RESULT_OK;
+    run_agua = OFF;
+    agua_nivel_lectura = 0;
+
+    if (!Menu::get_valor(AGUA_ON_OFF))  return;
+
+
+
+    agua_nivel_lectura = agua_leer_puntos();
+
+    if (!agua_nivel_lectura)
+    {
+        agua_set_error(AGUA_ERROR_NIVEL_0);
+        return;
+    }
+
+    /*
+    SUMO 50 PARA TRUNCAR UN REDONDEO
+    SI LA LECTURAS ES 1489 EL RESULTADO ES 1539
+    SI LA LECTURAS ES 1412 EL RESULTADO SER 1462
+    COMO EL RESULTANTE FINAL SER DIVIDIDO ENTRE 100 LOS 2 DIGITOS PRIMEROS RESULTAR PERFECTAMENTE REDONDEADO
+    */
+    agua_nivel_lectura = agua_nivel_lectura + 50;
+
+    // DIVIDO LA LECTURAS ENTRE 100, PORQUE EL SENSOR LO ENVIA MULTIPLICADO POR CIEN PARA NO PERDER PRECISION EN LAS PERDIDAS ANALOGICAS
+    agua_nivel_lectura = agua_nivel_lectura / 100;
+
+    if (agua_nivel_lectura < 0)
+    {
+        agua_nivel_lectura = 0;
+        agua_set_error(AGUA_ERROR_NIVEL_0);
+        return;
+    }
+
+    if (agua_nivel_lectura > altura_config_punto_maximo) agua_nivel_lectura = altura_config_punto_maximo;
+
+    agua_nivel_litros = agua_puntos_a_litros(agua_nivel_lectura);
+
+    if (Menu::get_valor(AGUA_ESCALA))
+    {
+        agua_lcd = (int)agua_nivel_lectura;
+    }
+    else
+    {
+        agua_lcd = (int)agua_nivel_litros;
+    }
+    
+    //FINAL DE TEST DE ERRORES
+
+    run_agua = ON;
+
+    bool result_dep = disponible_sonda_dep() && is_ok_sonda_dep();
+    if (CONFIG_AGUA_MANTENER_TEMP_ON == 1 && result_dep) //Si temperatura del deposito es menor de temperatura-confort, llenar=0
+    {
+        if (Menu::get_valor(AGUA_MANTENER_TEMP) && result_dep < Menu::get_valor(AGUA_MANTENER_TEMP)) 
+            run_agua = OFF;
+    }
+
+    if (agua_nivel_litros >= agua_techo) run_agua = OFF; //Si los litros llegan o superan al techo, llenar=0
+
+    if (agua_nivel_litros <= agua_suelo) run_agua = ON; //Si los litros llegan o bajan del suelo, llenar=1
+
+    result_agua = RESULT_OK;
+
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+    if (test_agua_stop_activado()) 
+    {
+        result_agua = AGUA_ERROR_AGUA_STOP;
+    }
+#endif
+}
+
+#ifdef IS_COMPILER_FOR_ARDUINO_MEGA_2560
+bool test_agua_stop_activado()
+{
+    if (!CONFIG_AGUA_STOP_ON) return FALSE;
+    bool read_pullup = !digitalRead(PIN_AGUA_STOP);
+    return read_pullup;
+} 
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
